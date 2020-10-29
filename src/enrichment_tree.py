@@ -1,4 +1,5 @@
 import scipy.stats as stats
+import numpy
 
 
 class EnrichmentTree:
@@ -145,20 +146,6 @@ class EnrichmentTree:
 			other_diff = relevant_root_diff_count - diff
 			other_detected = root_detected_count - detected
 			other_not_diff = other_detected - other_diff
-			try:
-				other_ratio = other_diff / other_detected
-			except ZeroDivisionError:
-				other_ratio = float('inf')
-			try:
-				ratio = diff / not_diff
-			except ZeroDivisionError:
-				ratio = float('inf')
-			if ratio > other_ratio:
-				enrichment = 'enriched'
-			elif ratio < other_ratio:
-				enrichment = 'depleted'
-			else:
-				enrichment = 'equal'
 			p_val = stats.fisher_exact(
 				[
 					[diff, not_diff],
@@ -166,7 +153,20 @@ class EnrichmentTree:
 				],
 				alternative='two-sided'
 			)[1]
-			return p_val, enrichment
+			try:
+				sample_frequency = diff / detected
+			except ZeroDivisionError:
+				sample_frequency = 1
+			try:
+				background_frequency = relevant_root_diff_count / root_detected_count
+			except ZeroDivisionError:
+				background_frequency = 1
+			enrichment = sample_frequency / background_frequency
+			if enrichment == 0:
+				log2_enrichment = float('-inf')
+			else:
+				log2_enrichment = numpy.log2(enrichment)
+			return p_val, log2_enrichment
 
 	class EnrichmentResult:
 		def __init__(
@@ -176,24 +176,24 @@ class EnrichmentTree:
 				down,
 				detected,
 				up_fisher,
-				up_enrichment,
+				up_log2_enrichment,
 				down_fisher,
-				down_enrichment,
+				down_log2_enrichment,
 				diff_fisher,
-				diff_enrichment
+				diff_log2_enrichment
 		):
 			self.bin_node = bin_node
 			self.up = up
 			self.down = down
 			self.detected = detected
 			self.up_fisher = up_fisher
-			self.up_enrichment = up_enrichment
+			self.up_log2_enrichment = up_log2_enrichment
 			self.up_bh_fisher = None
 			self.down_fisher = down_fisher
-			self.down_enrichment = down_enrichment
+			self.down_log2_enrichment = down_log2_enrichment
 			self.down_bh_fisher = None
 			self.diff_fisher = diff_fisher
-			self.diff_enrichment = diff_enrichment
+			self.diff_log2_enrichment = diff_log2_enrichment
 			self.diff_bh_fisher = None
 
 		def to_dict(self):
@@ -206,8 +206,8 @@ class EnrichmentTree:
 				'up_qval': self.up_bh_fisher,
 				'down_qval': self.down_bh_fisher,
 				'diff_qval': self.diff_bh_fisher,
-				'up_tail': self.up_enrichment,
-				'down_tail': self.down_enrichment,
-				'diff_tail': self.diff_enrichment
+				'up_log2_enrichment': self.up_log2_enrichment,
+				'down_log2_enrichment': self.down_log2_enrichment,
+				'diff_log2_enrichment': self.diff_log2_enrichment
 			}
 			return d

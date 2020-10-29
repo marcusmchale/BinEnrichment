@@ -147,11 +147,11 @@ class Handler:
 				'up',
 				'down',
 				'detected',
-				'diff_tail',
+				'diff_log2_enrichment',
 				'diff_qval',
-				'up_tail',
+				'up_log2_enrichment',
 				'up_qval',
-				'down_tail',
+				'down_log2_enrichment',
 				'down_qval',
 			]
 			writer = csv.DictWriter(tsv_file, fieldnames=fieldnames, delimiter='\t')

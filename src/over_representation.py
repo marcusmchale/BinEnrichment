@@ -55,6 +55,11 @@ class Handler:
 		results = self.fdr_correction(results)
 		print('Write results to: ' + self.out_path)
 		self.write_file(results)
+		print(
+			f"Background DEG frequencies:\n"
+			f"UP: {len(self.up_targets)}/{en_tree.detected_count}\n"
+			f"DOWN: {len(self.down_targets)}/{en_tree.detected_count}"
+		)
 
 	@staticmethod
 	def fdr_correction(results):

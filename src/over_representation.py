@@ -54,7 +54,12 @@ class Handler:
 		results = en_tree.calculate_enrichment()
 		results = self.fdr_correction(results)
 		print('Write results to: ' + self.out_path)
-		self.write_file(results)
+		self.write_file(
+			results,
+			en_tree.up_count,
+			en_tree.down_count,
+			en_tree.detected_count
+		)
 		print(
 			f"Background DEG frequencies:\n"
 			f"UP: {len(self.up_targets)}/{en_tree.detected_count}\n"
@@ -144,7 +149,7 @@ class Handler:
 				else:
 					self.unresponsive_targets.add(target)
 
-	def write_file(self, results):
+	def write_file(self, results,  root_up, root_down, root_detected):
 		with open(self.out_path, 'w') as tsv_file:
 			fieldnames = [
 				'bin_code',
@@ -159,8 +164,17 @@ class Handler:
 				'down_log2_enrichment',
 				'down_qval',
 			]
-			writer = csv.DictWriter(tsv_file, fieldnames=fieldnames, delimiter='\t')
+			writer = csv.DictWriter(tsv_file, fieldnames=fieldnames, delimiter='\t', extrasaction='ignore')
 			writer.writeheader()
+			writer.writerow(
+				{
+					'bin_code': '0',
+					'bin_name': 'root',
+					'up': root_up,
+					'down': root_down,
+					'detected': root_detected
+				}
+			)
 			for row in results:
 				writer.writerow(row.to_dict())
 

@@ -161,9 +161,14 @@ class EnrichmentTree:
 				background_frequency = relevant_root_diff_count / root_detected_count
 			except ZeroDivisionError:
 				background_frequency = 1
-			enrichment = sample_frequency / background_frequency
+			try:
+				enrichment = sample_frequency / background_frequency
+			except ZeroDivisionError:
+				enrichment = 'NA'
 			if enrichment == 0:
 				log2_enrichment = float('-inf')
+			elif enrichment == 'NA':
+				log2_enrichment = 'NA'
 			else:
 				log2_enrichment = numpy.log2(enrichment)
 			return p_val, log2_enrichment

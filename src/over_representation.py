@@ -227,16 +227,16 @@ class Handler:
 					if change > 0:
 						up.add(target)
 					elif change < 0:
-						self.down_targets.add(target)
+						down.add(target)
 					else:
 						print(
 							'Somehow a significant fold-change is equal to 0'
 							'Adding this target (%s) to the background '
 							'rather than those that exhibit a change' % target
 						)
-						self.unresponsive_targets.add(target)
+						unresponsive.add(target)
 				else:
-					self.unresponsive_targets.add(target)
+					unresponsive.add(target)
 		return up, down, unresponsive
 
 	def write_file(self, results, root_up, root_down, root_detected):

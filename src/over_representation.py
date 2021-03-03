@@ -13,7 +13,7 @@ class Handler:
 
 	def perform_test(
 			self,
-			file_path,
+			file_paths,
 			target_field='target_id',
 			lrt_sig_field='qval.LRT',
 			interaction_sig_field='interaction_qval',
@@ -21,22 +21,37 @@ class Handler:
 			wt_sig_field='qval.WT',
 			change_field='b',
 			sep='\t',
-			alpha=0.05
-		):
+			alpha=0.05,
+			min_prop=1
+	):
 		bin_tree = BinTree()
 		bin_tree.load_mapping_file(self.mapping_path)
 		en_tree = EnrichmentTree(bin_tree)
-		self.load_data(
-			file_path,
-			target_field,
-			lrt_sig_field,
-			wt_sig_field,
-			interaction_sig_field,
-			main_effect_sig_field,
-			change_field,
-			sep,
-			alpha
-		)
+		if len(file_paths) == 1:
+			self.load_data(
+				file_paths[0],
+				target_field,
+				lrt_sig_field,
+				wt_sig_field,
+				interaction_sig_field,
+				main_effect_sig_field,
+				change_field,
+				sep,
+				alpha
+			)
+		else:
+			self.load_multiple_data(
+				file_paths,
+				target_field,
+				lrt_sig_field,
+				wt_sig_field,
+				interaction_sig_field,
+				main_effect_sig_field,
+				change_field,
+				sep,
+				alpha,
+				min_prop
+			)
 		en_tree.detected_count = (
 				len(self.up_targets) +
 				len(self.down_targets) +
@@ -117,7 +132,81 @@ class Handler:
 			sep,
 			alpha
 	):
+		up, down, unresponsive = self.read_file(
+			file_path,
+			target_field,
+			lrt_sig_field,
+			wt_sig_field,
+			interaction_sig_field,
+			main_effect_sig_field,
+			change_field,
+			sep,
+			alpha
+		)
+		self.up_targets = up
+		self.down_targets = down
+		self.unresponsive_targets = unresponsive
+
+	def load_multiple_data(
+			self,
+			file_paths,
+			target_field,
+			lrt_sig_field,
+			wt_sig_field,
+			interaction_sig_field,
+			main_effect_sig_field,
+			change_field,
+			sep,
+			alpha,
+			min_prop
+	):
+		up_list = list()
+		down_list = list()
+		unresponsive_list = list()
+		for file_path in file_paths:
+			up, down, unresponsive = self.read_file(
+				file_path,
+				target_field,
+				lrt_sig_field,
+				wt_sig_field,
+				interaction_sig_field,
+				main_effect_sig_field,
+				change_field,
+				sep,
+				alpha
+			)
+			up_list.append(up)
+			down_list.append(down)
+			unresponsive_list.append(unresponsive)
+		detected = set.intersection(*up_list, *down_list, *unresponsive_list)
+		up_frequency = {g: 0 for g in detected}
+		down_frequency = {g: 0 for g in detected}
+		for gene_list in up_list:
+			for g in gene_list:
+				up_frequency[g] += 1
+		for gene_list in down_list:
+			for g in gene_list:
+				down_frequency[g] += 1
+		self.up_targets = set([g for g, v in up_frequency.items() if min_prop <= v/len(file_paths)])
+		self.down_targets = set([g for g, v in down_frequency.items() if min_prop <= v / len(file_paths)])
+		self.unresponsive_targets = detected - self.up_targets - self.down_targets
+
+	def read_file(
+			self,
+			file_path,
+			target_field,
+			lrt_sig_field,
+			wt_sig_field,
+			interaction_sig_field,
+			main_effect_sig_field,
+			change_field,
+			sep,
+			alpha
+	):
 		print('Start loading data from: ' + file_path)
+		up = set()
+		down = set()
+		unresponsive = set()
 		with open(file_path) as csv_file:
 			reader = csv.DictReader(csv_file, delimiter=sep, quoting=csv.QUOTE_MINIMAL)
 			for row in reader:
@@ -136,7 +225,7 @@ class Handler:
 					main_effect_p_val = None
 				if self.is_deg(alpha, lrt_p_val, wt_p_val, interaction_p_val, main_effect_p_val):
 					if change > 0:
-						self.up_targets.add(target)
+						up.add(target)
 					elif change < 0:
 						self.down_targets.add(target)
 					else:
@@ -148,8 +237,9 @@ class Handler:
 						self.unresponsive_targets.add(target)
 				else:
 					self.unresponsive_targets.add(target)
+		return up, down, unresponsive
 
-	def write_file(self, results,  root_up, root_down, root_detected):
+	def write_file(self, results, root_up, root_down, root_detected):
 		with open(self.out_path, 'w') as tsv_file:
 			fieldnames = [
 				'bin_code',
@@ -177,8 +267,3 @@ class Handler:
 			)
 			for row in results:
 				writer.writerow(row.to_dict())
-
-
-
-
-

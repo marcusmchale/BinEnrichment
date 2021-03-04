@@ -40,6 +40,12 @@ class Handler:
 				alpha
 			)
 		else:
+			try:
+				min_prop = float(min_prop)
+			except ValueError as e:
+				raise Exception(
+					'Last argument should be minimum proportion of samples fo inclusion in overlap of DEGs'
+				) from e
 			self.load_multiple_data(
 				file_paths,
 				target_field,
@@ -178,7 +184,7 @@ class Handler:
 			up_list.append(up)
 			down_list.append(down)
 			unresponsive_list.append(unresponsive)
-		detected = set.intersection(*up_list, *down_list, *unresponsive_list)
+		detected = set.union(*up_list, *down_list, *unresponsive_list)
 		up_frequency = {g: 0 for g in detected}
 		down_frequency = {g: 0 for g in detected}
 		for gene_list in up_list:

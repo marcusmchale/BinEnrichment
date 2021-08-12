@@ -198,11 +198,11 @@ class Handler:
 				alpha
 			)
 			if file_path.startswith("-"):
-				print(f"Marking targets from {file_path} as unresponsive" % file_path)
+				print(f"Marking targets from {file_path} as unresponsive")
 				to_remove_up |= up
 				to_remove_down |= down
 			else:
-				print(f"Including targets identified in {file_path}" % file_path)
+				print(f"Including targets identified in {file_path}")
 				up_list.append(up)
 				down_list.append(down)
 				unresponsive_list.append(unresponsive)

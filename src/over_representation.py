@@ -168,7 +168,7 @@ class Handler:
 	):
 		#
 		to_add = [i for i in file_paths if not i.startswith("-")]
-		to_remove = [i for i in file_paths if i.startswith("-")]
+		to_remove = [i[1:] for i in file_paths if i.startswith("-")]
 		print(
 			f"Loading files: {to_add}.\n"
 			f"Targets with significant change in the same direction in a minimum of {min_prop * len(to_add)} files"
@@ -185,7 +185,7 @@ class Handler:
 		unresponsive_list = list()
 		to_remove_up = set()
 		to_remove_down = set()
-		for file_path in file_paths:
+		for file_path in to_add:
 			up, down, unresponsive = self.read_file(
 				file_path,
 				target_field,
@@ -197,15 +197,25 @@ class Handler:
 				sep,
 				alpha
 			)
-			if file_path.startswith("-"):
-				print(f"Marking targets from {file_path} as unresponsive")
-				to_remove_up |= up
-				to_remove_down |= down
-			else:
-				print(f"Including targets identified in {file_path}")
-				up_list.append(up)
-				down_list.append(down)
-				unresponsive_list.append(unresponsive)
+			print(f"Including targets identified in {file_path}")
+			up_list.append(up)
+			down_list.append(down)
+			unresponsive_list.append(unresponsive)
+		for file_path in to_remove:
+			up, down, unresponsive = self.read_file(
+				file_path,
+				target_field,
+				lrt_sig_field,
+				wt_sig_field,
+				interaction_sig_field,
+				main_effect_sig_field,
+				change_field,
+				sep,
+				alpha
+			)
+			print(f"Marking targets from {file_path} as unresponsive")
+			to_remove_up |= up
+			to_remove_down |= down
 		detected = set.union(*up_list, *down_list, *unresponsive_list)
 		up_frequency = {g: 0 for g in detected}
 		down_frequency = {g: 0 for g in detected}

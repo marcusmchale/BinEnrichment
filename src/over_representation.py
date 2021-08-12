@@ -44,7 +44,7 @@ class Handler:
 				min_prop = float(min_prop)
 			except ValueError as e:
 				raise Exception(
-					'Last argument should be minimum proportion of samples fo inclusion in overlap of DEGs'
+					'Last argument should be minimum proportion of samples for inclusion in overlap of DEGs'
 				) from e
 			self.load_multiple_data(
 				file_paths,
@@ -166,9 +166,25 @@ class Handler:
 			alpha,
 			min_prop
 	):
+		#
+		to_add = [i for i in file_paths if not i.startswith("-")]
+		to_remove = [i for i in file_paths if i.startswith("-")]
+		print(
+			f"Loading files: {to_add}.\n"
+			f"Targets with significant change in the same direction in a minimum of {min_prop * len(to_add)} files"
+			f" will be considered DEGs.\n"
+		)
+		if to_remove:
+			print(
+				f"The following input filenames are prepended with '-': {to_remove}. "
+				f"Targets from these files will be removed from the DEG lists and considered as background. "
+				f"This is useful to consider unique groupings as depicted in venn diagrams. "
+			)
 		up_list = list()
 		down_list = list()
 		unresponsive_list = list()
+		to_remove_up = set()
+		to_remove_down = set()
 		for file_path in file_paths:
 			up, down, unresponsive = self.read_file(
 				file_path,
@@ -181,9 +197,15 @@ class Handler:
 				sep,
 				alpha
 			)
-			up_list.append(up)
-			down_list.append(down)
-			unresponsive_list.append(unresponsive)
+			if file_path.startswith("-"):
+				print(f"Marking targets from {file_path} as unresponsive" % file_path)
+				to_remove_up |= up
+				to_remove_down |= down
+			else:
+				print(f"Including targets identified in {file_path}" % file_path)
+				up_list.append(up)
+				down_list.append(down)
+				unresponsive_list.append(unresponsive)
 		detected = set.union(*up_list, *down_list, *unresponsive_list)
 		up_frequency = {g: 0 for g in detected}
 		down_frequency = {g: 0 for g in detected}
@@ -193,8 +215,8 @@ class Handler:
 		for gene_list in down_list:
 			for g in gene_list:
 				down_frequency[g] += 1
-		self.up_targets = set([g for g, v in up_frequency.items() if min_prop <= v/len(file_paths)])
-		self.down_targets = set([g for g, v in down_frequency.items() if min_prop <= v / len(file_paths)])
+		self.up_targets = set([g for g, v in up_frequency.items() if g not in to_remove_up and min_prop <= v/len(to_add)])
+		self.down_targets = set([g for g, v in down_frequency.items() if g not in to_remove_down and min_prop <= v / len(to_add)])
 		self.unresponsive_targets = detected - self.up_targets - self.down_targets
 
 	def read_file(

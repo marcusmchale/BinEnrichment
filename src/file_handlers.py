@@ -1,15 +1,15 @@
-from .bin_tree import BinTree
-from .enrichment_tree import EnrichmentTree
+from .tree import Tree, Expression
+from .enrichment import TreeTester
 import csv
 
 
-class Handler:
+class FileHandler:
 	def __init__(self, mapping_path, out_path):
 		self.mapping_path = mapping_path
 		self.out_path = out_path
-		self.up_targets = set()
-		self.down_targets = set()
-		self.unresponsive_targets = set()
+		self.up = set()
+		self.down = set()
+		self.undetermined = set()
 
 	def perform_test(
 			self,
@@ -24,9 +24,8 @@ class Handler:
 			alpha=0.05,
 			min_prop=1
 	):
-		bin_tree = BinTree()
-		bin_tree.load_mapping_file(self.mapping_path)
-		en_tree = EnrichmentTree(bin_tree)
+		tree = Tree()
+		tree.load_map(self.mapping_path)
 		if len(file_paths) == 1:
 			self.load_data(
 				file_paths[0],
@@ -58,59 +57,20 @@ class Handler:
 				alpha,
 				min_prop
 			)
-		en_tree.detected_count = (
-				len(self.up_targets) +
-				len(self.down_targets) +
-				len(self.unresponsive_targets)
-		)
-		missing_targets = en_tree.add_up_targets(self.up_targets)
-		missing_targets = missing_targets.union(en_tree.add_down_targets(self.down_targets))
-		missing_targets = missing_targets.union(en_tree.add_unresponsive_targets(self.unresponsive_targets))
+		tree.add_degs(self.up, Expression.UP)
+		tree.add_degs(self.down, Expression.DOWN)
+		tree.add_degs(self.undetermined, Expression.UNDETERMINED)
+		missing_targets = tree.unmapped_genes
 		if missing_targets:
 			print(
 				'Some targets of interest were not found in the mapping file: '
 				+ ','.join(missing_targets)
 			)
-		# add handler for return from these (unrecognised genes)
-		results = en_tree.calculate_enrichment()
-		results = self.fdr_correction(results)
+		results = TreeTester(tree).calculate_enrichment()
+		results = TreeTester.fdr_correction(results)
 		print('Write results to: ' + self.out_path)
-		self.write_file(
-			results,
-			en_tree.up_count,
-			en_tree.down_count,
-			en_tree.detected_count
-		)
-		print(
-			f"Background DEG frequencies:\n"
-			f"UP: {len(self.up_targets)}/{en_tree.detected_count}\n"
-			f"DOWN: {len(self.down_targets)}/{en_tree.detected_count}"
-		)
+		self.write_file(results)
 
-	@staticmethod
-	def fdr_correction(results):
-		# Apply Benjamini-Hochberg FDR correction of p-values
-		print('Apply FDR correction')
-		len_results = len(results)
-		results.sort(key=lambda x: x.up_fisher)
-		for i, record in enumerate(results):
-			up_bh_fisher = record.up_fisher * len_results / (i + 1)
-			if up_bh_fisher > 1:
-				up_bh_fisher = 1
-			record.up_bh_fisher = up_bh_fisher
-		results.sort(key=lambda x: x.down_fisher)
-		for i, record in enumerate(results):
-			down_bh_fisher = record.down_fisher * len_results / (i + 1)
-			if down_bh_fisher > 1:
-				down_bh_fisher = 1
-			record.down_bh_fisher = down_bh_fisher
-		results.sort(key=lambda x: x.diff_fisher)
-		for i, record in enumerate(results):
-			diff_bh_fisher = record.diff_fisher * len_results / (i + 1)
-			if diff_bh_fisher > 1:
-				diff_bh_fisher = 1
-			record.diff_bh_fisher = diff_bh_fisher
-		return results
 
 	@staticmethod
 	def is_deg(alpha, lrt_p_val=None, wt_p_val=None, interaction_p_val=None, main_effect_p_val=None):
@@ -149,9 +109,9 @@ class Handler:
 			sep,
 			alpha
 		)
-		self.up_targets = up
-		self.down_targets = down
-		self.unresponsive_targets = unresponsive
+		self.up = up
+		self.down = down
+		self.undetermined = unresponsive
 
 	def load_multiple_data(
 			self,
@@ -225,9 +185,9 @@ class Handler:
 		for gene_list in down_list:
 			for g in gene_list:
 				down_frequency[g] += 1
-		self.up_targets = set([g for g, v in up_frequency.items() if g not in to_remove_up and min_prop <= v/len(to_add)])
-		self.down_targets = set([g for g, v in down_frequency.items() if g not in to_remove_down and min_prop <= v / len(to_add)])
-		self.unresponsive_targets = detected - self.up_targets - self.down_targets
+		self.up = set([g for g, v in up_frequency.items() if g not in to_remove_up and min_prop <= v / len(to_add)])
+		self.down = set([g for g, v in down_frequency.items() if g not in to_remove_down and min_prop <= v / len(to_add)])
+		self.undetermined = detected - self.up - self.down
 
 	def read_file(
 			self,
@@ -269,7 +229,7 @@ class Handler:
 					else:
 						print(
 							'Somehow a significant fold-change is equal to 0'
-							'Adding this target (%s) to the background '
+							'Adding this gene (%s) to the background '
 							'rather than those that exhibit a change' % target
 						)
 						unresponsive.add(target)
@@ -277,7 +237,7 @@ class Handler:
 					unresponsive.add(target)
 		return up, down, unresponsive
 
-	def write_file(self, results, root_up, root_down, root_detected):
+	def write_file(self, results):
 		with open(self.out_path, 'w') as tsv_file:
 			fieldnames = [
 				'bin_code',
@@ -291,17 +251,57 @@ class Handler:
 				'up_qval',
 				'down_log2_enrichment',
 				'down_qval',
+				'bias_log2_enrichment',
+				'bias_qval',
+				'bias_direction',
+				'diff_peers_log2_enrichment',
+				'diff_peers_qval',
+				'enriched_over_peers'
 			]
 			writer = csv.DictWriter(tsv_file, fieldnames=fieldnames, delimiter='\t', extrasaction='ignore')
 			writer.writeheader()
-			writer.writerow(
-				{
-					'bin_code': '0',
-					'bin_name': 'root',
-					'up': root_up,
-					'down': root_down,
-					'detected': root_detected
-				}
-			)
-			for row in results:
-				writer.writerow(row.to_dict())
+			writer.writerow({
+					'bin_code':results[0][0].code,
+					'bin_name':results[0][0].name,
+					'up': len(results[0][0].expression_map.up),
+					'down': len(results[0][0].expression_map.down),
+					'detected': len(results[0][0].expression_map.detected)
+			})
+			for record in results[1:]:
+				node = record[0]
+				node_results = record[1]
+				if node_results.bias.qval <= 0.05:
+					if node_results.bias.enrichment <= 0:
+						bias_direction = 'Down'
+					else:
+						bias_direction = 'Up'
+				else:
+					bias_direction = "None"
+				if node_results.diff_peers.qval <= 0.05:
+					if node_results.diff_peers.enrichment >= 0:
+						enriched_over_peers = "Enriched"
+					else:
+						enriched_over_peers = "Depleted"
+				else:
+					enriched_over_peers = "None"
+				writer.writerow({
+					'bin_code': node.code,
+					'bin_name': node.name,
+					'up': len(node.expression_map.up),
+					'down': len(node.expression_map.down),
+					'detected': len(node.expression_map.detected),
+					'diff_log2_enrichment': node_results.diff.enrichment,
+					'up_log2_enrichment': node_results.up.enrichment,
+					'down_log2_enrichment': node_results.down.enrichment,
+					'bias_log2_enrichment': node_results.bias.enrichment,
+					'diff_peers_log2_enrichment': node_results.diff_peers.enrichment,
+					'diff_qval': node_results.diff.qval,
+					'up_qval': node_results.up.qval,
+					'down_qval': node_results.down.qval,
+					'bias_qval': node_results.bias.qval,
+					'diff_peers_qval': node_results.diff_peers.qval,
+					'bias_direction': bias_direction,
+					'enriched_over_peers': enriched_over_peers
+				})
+
+

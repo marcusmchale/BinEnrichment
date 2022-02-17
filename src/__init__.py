@@ -1,4 +1,3 @@
-from .over_representation import Handler
-from .bin_tree import BinTree
-from .enrichment_tree import EnrichmentTree
+from .file_handlers import FileHandler
+from .tree import Tree
 

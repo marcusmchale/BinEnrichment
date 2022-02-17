@@ -8,7 +8,6 @@ import csv
 class Expression(Enum):
 	UP = 'up'
 	DOWN = 'down'
-	DIFF = 'diff'
 	UNDETERMINED = 'undetermined'
 
 

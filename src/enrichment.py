@@ -1,4 +1,4 @@
-from numpy import log2
+from numpy import log2, errstate
 from scipy.stats import fisher_exact
 
 from .tree import Node, Tree
@@ -7,7 +7,8 @@ from .tree import Node, Tree
 class FisherResult:
 	def __init__(self, result):
 		self.pval = result[1]
-		self.enrichment = log2(result[0])
+		with errstate(divide='ignore'):
+			self.enrichment = log2(result[0])
 		self.qval = None
 
 
@@ -125,8 +126,15 @@ class TreeTester:
 			# Apply Benjamini-Hochberg FDR correction of p-values
 			len_results = len(results)
 			results.sort(key=lambda x: x[1].map[key].pval)
-			for i, record in enumerate(results):
-				qval = record[1].map[key].pval * len_results / (i + 1)
+			current_pval = None
+			index = 0  # not using enumerate as we want to handle identical p-values without incrementing index
+			# this is the method implemented in multtest package on bioconductor.
+			# at least according to stack exchange https://stats.stackexchange.com/questions/18872
+			for record in results:
+				pval = record[1].map[key].pval
+				if pval != current_pval:
+					index += 1
+				qval = pval * len_results / (index + 1)
 				if qval > 1:
 					qval = 1
 				record[1].map[key].qval = qval
@@ -136,6 +144,6 @@ class TreeTester:
 		results = results[1:]
 		for key in results[0][1].map.keys():
 			bh_helper(results, key)
-		results.sort(key=lambda x: x[1].diff.pval)
+		results.sort(key=lambda x: x[1].diff.qval)
 		results.insert(0, root)
 		return results

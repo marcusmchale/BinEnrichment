@@ -247,22 +247,23 @@ class FileHandler:
 				'detected',
 				'diff_log2_enrichment',
 				'diff_qval',
-				'up_log2_enrichment',
-				'up_qval',
-				'down_log2_enrichment',
-				'down_qval',
+				'enriched',
+				#'up_log2_enrichment',
+				#'up_qval',
+				#'down_log2_enrichment',
+				#'down_qval',
 				'bias_log2_enrichment',
 				'bias_qval',
-				'bias_direction',
-				'diff_peers_log2_enrichment',
-				'diff_peers_qval',
-				'enriched_over_peers'
+				'bias_direction'
+				#'diff_peers_log2_enrichment',
+				#'diff_peers_qval',
+				#'enriched_over_peers'
 			]
 			writer = csv.DictWriter(tsv_file, fieldnames=fieldnames, delimiter='\t', extrasaction='ignore')
 			writer.writeheader()
 			writer.writerow({
-					'bin_code':results[0][0].code,
-					'bin_name':results[0][0].name,
+					'bin_code': results[0][0].code,
+					'bin_name': results[0][0].name,
 					'up': len(results[0][0].expression_map.up),
 					'down': len(results[0][0].expression_map.down),
 					'detected': len(results[0][0].expression_map.detected)
@@ -270,6 +271,10 @@ class FileHandler:
 			for record in results[1:]:
 				node = record[0]
 				node_results = record[1]
+				if (node_results.diff.enrichment > 0) & (node_results.diff.qval <= 0.05):
+					enriched = "True"
+				else:
+					enriched = "False"
 				if node_results.bias.qval <= 0.05:
 					if node_results.bias.enrichment <= 0:
 						bias_direction = 'Down'
@@ -277,13 +282,13 @@ class FileHandler:
 						bias_direction = 'Up'
 				else:
 					bias_direction = "None"
-				if node_results.diff_peers.qval <= 0.05:
-					if node_results.diff_peers.enrichment >= 0:
-						enriched_over_peers = "Enriched"
-					else:
-						enriched_over_peers = "Depleted"
-				else:
-					enriched_over_peers = "None"
+				#if node_results.diff_peers.qval <= 0.05:
+				#	if node_results.diff_peers.enrichment >= 0:
+				#		enriched_over_peers = "Enriched"
+				#	else:
+				#		enriched_over_peers = "Depleted"
+				#else:
+				#	enriched_over_peers = "None"
 				writer.writerow({
 					'bin_code': node.code,
 					'bin_name': node.name,
@@ -291,17 +296,18 @@ class FileHandler:
 					'down': len(node.expression_map.down),
 					'detected': len(node.expression_map.detected),
 					'diff_log2_enrichment': node_results.diff.enrichment,
-					'up_log2_enrichment': node_results.up.enrichment,
-					'down_log2_enrichment': node_results.down.enrichment,
+					# 'up_log2_enrichment': node_results.up.enrichment,
+					# 'down_log2_enrichment': node_results.down.enrichment,
 					'bias_log2_enrichment': node_results.bias.enrichment,
-					'diff_peers_log2_enrichment': node_results.diff_peers.enrichment,
+					'enriched': enriched,
+					# 'diff_peers_log2_enrichment': node_results.diff_peers.enrichment,
 					'diff_qval': node_results.diff.qval,
-					'up_qval': node_results.up.qval,
-					'down_qval': node_results.down.qval,
+					# 'up_qval': node_results.up.qval,
+					# 'down_qval': node_results.down.qval,
 					'bias_qval': node_results.bias.qval,
-					'diff_peers_qval': node_results.diff_peers.qval,
+					# 'diff_peers_qval': node_results.diff_peers.qval,
 					'bias_direction': bias_direction,
-					'enriched_over_peers': enriched_over_peers
+					# 'enriched_over_peers': enriched_over_peers
 				})
 
 

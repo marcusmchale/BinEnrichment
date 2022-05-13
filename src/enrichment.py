@@ -87,9 +87,9 @@ class NodeTester:
 
 	def get_results(self):
 		tables = self.get_tables()
-		diff = FisherResult(fisher_exact(tables['diff'], alternative='greater'))
-		up = FisherResult(fisher_exact(tables['up'], alternative='greater'))
-		down = FisherResult(fisher_exact(tables['down'], alternative='greater'))
+		diff = FisherResult(fisher_exact(tables['diff'], alternative='two-sided'))
+		up = FisherResult(fisher_exact(tables['up'], alternative='two-sided'))
+		down = FisherResult(fisher_exact(tables['down'], alternative='two-sided'))
 		bias = FisherResult(fisher_exact(tables['bias'], alternative='two-sided'))
 		diff_peers = FisherResult(fisher_exact(tables['diff_peers'], alternative='two-sided'))
 		return EnrichmentResults(
@@ -144,6 +144,6 @@ class TreeTester:
 		results = results[1:]
 		for key in results[0][1].map.keys():
 			bh_helper(results, key)
-		results.sort(key=lambda x: x[1].diff.qval)
+		results.sort(key=lambda x: (not (x[1].diff.qval <=0.05 and x[1].diff.enrichment >0), x[1].diff.qval))
 		results.insert(0, root)
 		return results

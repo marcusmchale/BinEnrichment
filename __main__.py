@@ -39,4 +39,14 @@ elif result_format == 'wgcna':
 		change_field="sign",
 		min_prop=1
 	)
+elif result_format == 'deseq2':
+	print('ok')
+	FileHandler(mapping_path, out_path).perform_test(
+		data_paths,
+		target_field="GeneID",
+		lrt_sig_field="padj",
+		change_field="log2FoldChange",
+		min_prop=1
+	)
+
 

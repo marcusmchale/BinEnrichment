@@ -7,7 +7,8 @@ There may be an issue in the way that code handled gene lists that resulted in i
 where a gene is present in multiple child bins. I fixed this by collecting genes into a set instead of a list. 
 
 I expanded the functionality by separating the up/down regulated targets for independent testing
-and reporting the raw counts and fold-changes. These are all useful in interpreting and presenting the data.
+and reporting the raw counts, fold-changes and significant directional biases. 
+These are all useful in interpreting and presenting the data.
 
 This tool loads a Mercator4 mapping file and a DEG file containing matching target IDs, p-values and fold-change values  
 in order to assess enrichment based on Fisher test (2 sided) for Up/Down/Differentially regulated targets.

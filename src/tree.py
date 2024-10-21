@@ -4,10 +4,10 @@ from enum import Enum
 from collections import defaultdict
 import csv
 
-
 class Expression(Enum):
 	UP = 'up'
 	DOWN = 'down'
+	DIFF = 'diff'
 	UNDETERMINED = 'undetermined'
 
 
@@ -16,6 +16,7 @@ class ExpressionMap:
 		self.undetermined = set()
 		self.up = set()
 		self.down = set()
+		self._diff = set()
 		self.map = {
 			'undetermined': self.undetermined,
 			'up': self.up,
@@ -26,12 +27,14 @@ class ExpressionMap:
 
 	@property
 	def detected(self):
-		return set.union(self.undetermined, self.up, self.down)
+		return set.union(self.undetermined, self.diff)
 
 	@property
 	def diff(self):
-		return set.union(self.up, self.down)
-
+		if self.up or self.down:
+			return set.union(self.up, self.down)
+		else:
+			return self._diff
 
 class Node:
 	def __init__(

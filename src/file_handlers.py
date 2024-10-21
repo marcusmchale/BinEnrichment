@@ -2,8 +2,117 @@ from .tree import Tree, Expression
 from .enrichment import TreeTester
 import csv
 
+class GeneFileHandler:
+	def __init__(self, mapping_path, out_path, background_file, up_file = None, down_file = None, diff_file = None):
+		self.mapping_path = mapping_path
+		self.out_path = out_path
+		self.directional = any([up_file, down_file])
 
-class FileHandler:
+		self.background_file_path = background_file
+		self.up_file_path = up_file
+		self.down_file_path = down_file
+		self.diff_file_path = diff_file
+
+		if diff_file and self.directional:
+			raise ValueError("Diff file may only be provided if no up or down file is provided")
+
+		self.up = None
+		self.down = None
+		self._diff = None
+		self.undetermined = None
+
+
+	@property
+	def diff(self):
+		if self.directional:
+			return self.up | self.down
+		else:
+			return self._diff
+
+	@staticmethod
+	def read_file(file_path):
+		if file_path is None:
+			return set()
+
+		with open(file_path, 'r') as genes_file:
+			return set([line.rstrip() for line in genes_file])
+
+	def perform_test(self):
+		self.up = self.read_file(self.up_file_path)
+		self.down = self.read_file(self.down_file_path)
+		self._diff = self.read_file(self.diff_file_path)
+		self.undetermined = self.read_file(self.background_file_path) - self.diff
+		tree = Tree()
+		tree.load_map(self.mapping_path)
+		tree.add_degs(self.up, Expression.UP)
+		tree.add_degs(self.down, Expression.DOWN)
+		tree.add_degs(self._diff, Expression.DIFF)
+		tree.add_degs(self.undetermined, Expression.UNDETERMINED)
+		missing_targets = tree.unmapped_genes
+		if missing_targets:
+			print(f'Some targets of interest were not found in the mapping file: {",".join(missing_targets)}')
+		results = TreeTester(tree).calculate_enrichment()
+		results = TreeTester.fdr_correction(results)
+		print('Write results to: ' + self.out_path)
+		self.write_file(results)
+
+	def write_file(self, results):
+		with open(self.out_path, 'w') as tsv_file:
+			fieldnames = [
+				'bin_code',
+				'bin_name',
+				'up',
+				'down',
+				'diff',
+				'detected',
+				'diff_log2_enrichment',
+				'diff_qval',
+				'enriched',
+				'bias_log2_enrichment',
+				'bias_qval',
+				'bias_direction'
+			]
+			writer = csv.DictWriter(tsv_file, fieldnames=fieldnames, delimiter='\t', extrasaction='ignore')
+			writer.writeheader()
+			writer.writerow({
+					'bin_code': results[0][0].code,
+					'bin_name': results[0][0].name,
+					'up': len(results[0][0].expression_map.up),
+					'down': len(results[0][0].expression_map.down),
+					'diff': len(results[0][0].expression_map.diff),
+					'detected': len(results[0][0].expression_map.detected)
+			})
+			for record in results[1:]:
+				node = record[0]
+				node_results = record[1]
+				if (node_results.diff.enrichment > 0) & (node_results.diff.qval <= 0.05):
+					enriched = "True"
+				else:
+					enriched = "False"
+				if node_results.bias.qval <= 0.05:
+					if node_results.bias.enrichment <= 0:
+						bias_direction = 'Down'
+					else:
+						bias_direction = 'Up'
+				else:
+					bias_direction = "None"
+				writer.writerow({
+					'bin_code': node.code,
+					'bin_name': node.name,
+					'up': len(node.expression_map.up),
+					'down': len(node.expression_map.down),
+					'diff': len(node.expression_map.diff),
+					'detected': len(node.expression_map.detected),
+					'diff_log2_enrichment': node_results.diff.enrichment,
+					'bias_log2_enrichment': node_results.bias.enrichment,
+					'enriched': enriched,
+					'diff_qval': node_results.diff.qval,
+					'bias_qval': node_results.bias.qval,
+					'bias_direction': bias_direction,
+				})
+
+
+class ResultFileHandler:
 	def __init__(self, mapping_path, out_path):
 		self.mapping_path = mapping_path
 		self.out_path = out_path
@@ -98,7 +207,7 @@ class FileHandler:
 			sep,
 			alpha
 	):
-		up, down, unresponsive = self.read_file(
+		up, down, unresponsive = self.read_results_file(
 			file_path,
 			target_field,
 			lrt_sig_field,
@@ -146,7 +255,7 @@ class FileHandler:
 		to_remove_up = set()
 		to_remove_down = set()
 		for file_path in to_add:
-			up, down, unresponsive = self.read_file(
+			up, down, unresponsive = self.read_results_file(
 				file_path,
 				target_field,
 				lrt_sig_field,
@@ -162,7 +271,7 @@ class FileHandler:
 			down_list.append(down)
 			unresponsive_list.append(unresponsive)
 		for file_path in to_remove:
-			up, down, unresponsive = self.read_file(
+			up, down, unresponsive = self.read_results_file(
 				file_path,
 				target_field,
 				lrt_sig_field,
@@ -189,7 +298,7 @@ class FileHandler:
 		self.down = set([g for g, v in down_frequency.items() if g not in to_remove_down and min_prop <= v / len(to_add)])
 		self.undetermined = detected - self.up - self.down
 
-	def read_file(
+	def read_results_file(
 			self,
 			file_path,
 			target_field,

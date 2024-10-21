@@ -44,17 +44,17 @@ class NodeTester:
 		detected = len(self.node.expression_map.detected)
 		up = len(self.node.expression_map.up)
 		down = len(self.node.expression_map.down)
-		diff = up + down
+		diff = len(self.node.expression_map.diff)
 
 		other_detected = len(self.root.expression_map.detected - self.node.expression_map.detected)
 		other_up = len(self.root.expression_map.up - self.node.expression_map.detected)
 		other_down = len(self.root.expression_map.down - self.node.expression_map.detected)
-		other_diff = other_up + other_down
+		other_diff = len(self.root.expression_map.diff - self.node.expression_map.detected)
 
 		peers_detected = len(self.node.parent.expression_map.detected - self.node.expression_map.detected)
 		peers_up = len(self.node.parent.expression_map.up - self.node.expression_map.up)
 		peers_down = len(self.node.parent.expression_map.down - self.node.expression_map.down)
-		peers_diff = peers_up + peers_down
+		peers_diff = len(self.node.parent.expression_map.diff - self.node.expression_map.diff)
 
 		diff_table = [
 			[diff, detected-diff],
@@ -134,7 +134,7 @@ class TreeTester:
 				pval = record[1].map[key].pval
 				if pval != current_pval:
 					index += 1
-				qval = pval * len_results / (index + 1)
+				qval = pval * len_results / index
 				if qval > 1:
 					qval = 1
 				record[1].map[key].qval = qval

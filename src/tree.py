@@ -83,7 +83,7 @@ class Tree:
 
 	def load_map(self, mapping_file_path):
 		self.code_to_node[self.root_code] = self.root
-		print('Start reading input file from: ' + mapping_file_path)
+		print('Start reading input file from: ' + str(mapping_file_path))
 		with open(mapping_file_path) as tsv_file:
 			reader = csv.reader(tsv_file, delimiter='\t', quoting=csv.QUOTE_NONE)
 			next(reader)  # skip header, i.e. BINCODE	NAME	IDENTIFIER	DESCRIPTION	TYPE
@@ -117,3 +117,6 @@ class Tree:
 				for code in codes:
 					self.code_to_node[code].add_expression(gene, expression)
 
+	def clear_degs(self):
+		for node in self.code_to_node.values():
+			node.genes.clear()

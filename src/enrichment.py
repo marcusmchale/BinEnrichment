@@ -16,22 +16,13 @@ class EnrichmentResults:
 	def __init__(
 			self,
 			diff: FisherResult,
-			up: FisherResult,
-			down: FisherResult,
-			bias: FisherResult,
-			diff_peers: FisherResult
+			trend: FisherResult
 	):
 		self.diff = diff
-		self.up = up
-		self.down = down
-		self.bias = bias
-		self.diff_peers = diff_peers
+		self.trend = trend
 		self.map = {
 			'diff': self.diff,
-			'up': self.up,
-			'down': self.down,
-			'bias': self.bias,
-			'diff_peers': self.diff_peers
+			'trend': self.trend,
 		}
 
 
@@ -51,50 +42,24 @@ class NodeTester:
 		other_down = len(self.root.expression_map.down - self.node.expression_map.detected)
 		other_diff = len(self.root.expression_map.diff - self.node.expression_map.detected)
 
-		peers_detected = len(self.node.parent.expression_map.detected - self.node.expression_map.detected)
-		peers_up = len(self.node.parent.expression_map.up - self.node.expression_map.up)
-		peers_down = len(self.node.parent.expression_map.down - self.node.expression_map.down)
-		peers_diff = len(self.node.parent.expression_map.diff - self.node.expression_map.diff)
-
 		diff_table = [
 			[diff, detected-diff],
 			[other_diff, other_detected - other_diff]
 		]
-		up_table = [
-			[up, detected - up],
-			[other_up, other_detected - other_up]
-		]
-		down_table = [
-			[down, detected - down],
-			[other_down, other_detected - other_down]
-		]
-		bias_table = [
+		trend_table = [
 			[up, down],
 			[other_up, other_down]
 		]
-		diff_peers = [
-			[diff, detected-diff],
-			[peers_diff, peers_detected - peers_diff]
-		]
-
 		return {
 			'diff': diff_table,
-			'up': up_table,
-			'down': down_table,
-			'bias': bias_table,
-			'diff_peers': diff_peers
+			'trend': trend_table
 		}
 
 	def get_results(self):
 		tables = self.get_tables()
 		diff = FisherResult(fisher_exact(tables['diff'], alternative='two-sided'))
-		up = FisherResult(fisher_exact(tables['up'], alternative='two-sided'))
-		down = FisherResult(fisher_exact(tables['down'], alternative='two-sided'))
-		bias = FisherResult(fisher_exact(tables['bias'], alternative='two-sided'))
-		diff_peers = FisherResult(fisher_exact(tables['diff_peers'], alternative='two-sided'))
-		return EnrichmentResults(
-			diff, up, down, bias, diff_peers
-		)
+		trend = FisherResult(fisher_exact(tables['trend'], alternative='two-sided'))
+		return EnrichmentResults(diff, trend)
 
 
 class TreeTester:
@@ -120,7 +85,7 @@ class TreeTester:
 		return results
 
 	@staticmethod
-	def fdr_correction(results):
+	def fdr_correction(results, alpha):
 
 		def bh_helper(results, key):
 			# Apply Benjamini-Hochberg FDR correction of p-values
@@ -144,6 +109,6 @@ class TreeTester:
 		results = results[1:]
 		for key in results[0][1].map.keys():
 			bh_helper(results, key)
-		results.sort(key=lambda x: (not (x[1].diff.qval <=0.05 and x[1].diff.enrichment >0), x[1].diff.qval))
+		results.sort(key=lambda x: (not (x[1].diff.qval <= alpha and x[1].diff.enrichment >0), x[1].diff.qval))
 		results.insert(0, root)
 		return results
